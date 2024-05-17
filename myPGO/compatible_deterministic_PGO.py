@@ -22,6 +22,7 @@ class Reinforce():
 		self.batch_size = batch_size
 		self.tau = tau  # Parameter for soft target updates
 
+
 		self.replay_buffer = ReplayBuffer(maxlen=buffer_max_len)
 		self.Q = Compatible_Deterministic_Q(input_dim = self.n_states+self.n_actions)
 		self.policy = Deterministic_Policy(n_states=self.n_states, n_actions=self.n_actions)
@@ -53,6 +54,9 @@ class Reinforce():
 			terminated = False
 
 			self.scores.append(0)
+
+			if ep>30: 
+				self.policy_optim = torch.optim.Adam(params=self.policy.parameters(), lr=1e-5)
 
 			while not (truncated or terminated):
 				actions = self.policy(state.unsqueeze(0)).detach().squeeze()
@@ -94,10 +98,10 @@ class Reinforce():
 		
 		with torch.no_grad():
 			#next_action_batch = self.policy(next_states_batch)
-			next_action_batch = self.policy_target(next_states_batch)
+			next_action_batch = self.policy_target(next_states_batch) #sostituisce quella sopra
 			next_state_next_action_batch = torch.cat((next_states_batch, next_action_batch), dim=1)
-			target_q_batch = self.Q(next_state_next_action_batch).squeeze()
-			target_q_batch = self.Q_target(next_state_next_action_batch).squeeze()
+			#target_q_batch = self.Q(next_state_next_action_batch).squeeze()
+			target_q_batch = self.Q_target(next_state_next_action_batch).squeeze() #sostituisce quella sopra
 			target_q_batch = rewards_batch + (~terminated_batch)*self.gamma*target_q_batch		# Qw(st+1, mu(st+1)) 
 			
 		# target = rt + gamma*Qw(st+1, mu(st+1)) , pred = Qw(st,at)
@@ -114,7 +118,7 @@ class Reinforce():
 		policy_loss.backward()
 		self.policy_optim.step()
 		self.policy_loss_history.append(policy_loss.item())
-
+	
 		self.Q_optim.zero_grad()
 		Q_loss.backward()
 		self.Q_optim.step()
@@ -148,6 +152,6 @@ num_cores = 8
 torch.set_num_interop_threads(num_cores) # Inter-op parallelism
 torch.set_num_threads(num_cores) # Intra-op parallelism
 env = gym.make('LunarLander-v2', render_mode=None, continuous=True)
-trainer = Reinforce(env=env, n_episodes=100, gamma=0.99, buffer_max_len=100000, steps2opt=1, batch_size=64, policy_lr=1e-5, Q_lr=1e-4)
+trainer = Reinforce(env=env, n_episodes=100, gamma=0.99, buffer_max_len=100000, steps2opt=1, batch_size=32, policy_lr=1e-4, Q_lr=1e-4)
 trainer.train()
 trainer.plot_rewards()
